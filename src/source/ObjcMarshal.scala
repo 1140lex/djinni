@@ -71,6 +71,7 @@ class ObjcMarshal(spec: Spec) extends Marshal(spec) {
     }
     case e: MExtern => List(ImportRef(e.objc.header))
     case p: MParam => List()
+    case l: MLambda => List()
   }
 
   def headerName(ident: String) = idObjc.ty(ident) + "." + spec.objcHeaderExt
@@ -94,6 +95,9 @@ class ObjcMarshal(spec: Spec) extends Marshal(spec) {
   def toObjcType(tm: MExpr): (String, Boolean) = toObjcType(tm, false)
   def toObjcType(tm: MExpr, needRef: Boolean): (String, Boolean) = {
     def args(tm: MExpr) = if (tm.args.isEmpty) "" else tm.args.map(toBoxedParamType).mkString("<", ", ", ">")
+    def lambdaArgs(args : Seq[MExpr]) = args.map(toBoxedParamNamedType).mkString("(", ", ", ")")
+    def lambdaV(tm: MExpr) = "void (^)" + lambdaArgs(tm.args)
+    def lambdaR(tm: MExpr) = toBoxedParamType(tm.args.last) + "(^)" + lambdaArgs(tm.args.dropRight(1))
     def f(tm: MExpr, needRef: Boolean): (String, Boolean) = {
       tm.base match {
         case MOptional =>
@@ -114,6 +118,11 @@ class ObjcMarshal(spec: Spec) extends Marshal(spec) {
             case MList => ("NSArray" + args(tm), true)
             case MSet => ("NSSet" + args(tm), true)
             case MMap => ("NSDictionary" + args(tm), true)
+            case l: MLambda =>
+              if (l.hasRet)
+                (lambdaR(tm),false)
+              else
+                (lambdaV(tm),false)
             case d: MDef => d.defType match {
               case DEnum => if (needRef) ("NSNumber", true) else (idObjc.ty(d.name), false)
               case DRecord => (idObjc.ty(d.name), true)
@@ -139,6 +148,12 @@ class ObjcMarshal(spec: Spec) extends Marshal(spec) {
   def toBoxedParamType(tm: MExpr): String = {
     val (name, needRef) = toObjcType(tm, true)
     name + (if(needRef) " *" else "")
+  }
+
+
+  def toBoxedParamNamedType(tm: MExpr): String = {
+    val (name, needRef) = toObjcType(tm, true)
+    name + (if(needRef) "* " else " ") + tm.base.metaName
   }
 
   def toObjcParamType(tm: MExpr): String = {

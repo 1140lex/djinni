@@ -305,7 +305,11 @@ private def resolveRef(scope: Scope, r: TypeRef) {
 }
 
 private def buildMExpr(scope: Scope, e: TypeExpr): MExpr = {
-  scope.get(e.ident.name) match {
+  if (e.ident.name == "LambdaV")
+    MExpr(MLambda(e.args.size,false),e.args.map(buildMExpr(scope, _)))
+  else if (e.ident.name == "LambdaR")
+    MExpr(MLambda(e.args.size,true),e.args.map(buildMExpr(scope, _)))
+  else scope.get(e.ident.name) match {
     case Some(meta) => {
       if (meta.numParams != e.args.length) {
         throw Error(e.ident.loc, "incorrect number of arguments to type \"" + e.ident.name
@@ -316,6 +320,9 @@ private def buildMExpr(scope: Scope, e: TypeExpr): MExpr = {
         // HACK: In Java, we use "null" for optionals, so we don't allow nested optionals.
         throw Error(e.ident.loc, "directly nested optionals not allowed").toException
       }
+      if (e.isInstanceOf[TypeNamedExpr])
+        meta.metaName = e.asInstanceOf[TypeNamedExpr].name.name
+
       MExpr(meta, margs)
     }
     case None =>

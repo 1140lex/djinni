@@ -26,11 +26,14 @@ case class MExpr(base: Meta, args: Seq[MExpr])
 abstract sealed class Meta
 {
   val numParams: Int
+  var metaName: String = ""
 }
+
 
 case class MParam(name: String) extends Meta { val numParams = 0 }
 case class MDef(name: String, override val numParams: Int, defType: DefType, body: TypeDef) extends Meta
 case class MExtern(name: String, override val numParams: Int, defType: DefType, body: TypeDef, cpp: MExtern.Cpp, objc: MExtern.Objc, objcpp: MExtern.Objcpp, java: MExtern.Java, jni: MExtern.Jni) extends Meta
+case class MLambda(override val numParams: Int, hasRet: Boolean) extends Meta
 object MExtern {
   // These hold the information marshals need to interface with existing types correctly
   // All include paths are complete including quotation marks "a/b/c" or angle brackets <a/b/c>.

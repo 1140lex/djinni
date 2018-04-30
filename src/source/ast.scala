@@ -55,7 +55,17 @@ case class Ext(java: Boolean, cpp: Boolean, objc: Boolean) {
 case class TypeRef(expr: TypeExpr) {
   var resolved: MExpr = null
 }
-case class TypeExpr(ident: Ident, args: Seq[TypeExpr])
+
+abstract class TypeExpr {
+  val ident: Ident
+  val args: Seq[TypeExpr]
+}
+
+case class TypeExprExact(ident: Ident, args: Seq[TypeExpr]) extends TypeExpr
+case class TypeNamedExpr(name: Ident, typeRef : TypeRef) extends TypeExpr {
+  val ident: Ident = typeRef.expr.ident
+  val args: Seq[TypeExpr] = typeRef.expr.args
+}
 
 sealed abstract class TypeDef
 

@@ -59,6 +59,7 @@ class CppMarshal(spec: Spec) extends Marshal(spec) {
     case MList => List(ImportRef("<vector>"))
     case MSet => List(ImportRef("<unordered_set>"))
     case MMap => List(ImportRef("<unordered_map>"))
+    case l: MLambda => List(ImportRef("<functional>"))
     case d: MDef => d.body match {
       case r: Record =>
         if (d.name != exclude) {
@@ -156,6 +157,7 @@ class CppMarshal(spec: Spec) extends Marshal(spec) {
       case MList => "std::vector"
       case MSet => "std::unordered_set"
       case MMap => "std::unordered_map"
+      case _: MLambda => "std::function"
       case d: MDef =>
         d.defType match {
           case DEnum => withNamespace(idCpp.enumType(d.name))

@@ -196,9 +196,21 @@ private object IdlParser extends RegexParsers {
     case doc~_~ident~_~typeRef~_~value => Const(ident, typeRef, value, doc)
   }
 
-  def typeRef: Parser[TypeRef] = typeExpr ^^ TypeRef
+  def typeRef: Parser[TypeRef] = (lambdaExpr | typeExpr) ^^ TypeRef
   def typeExpr: Parser[TypeExpr] = ident ~ typeList(typeExpr) ^^ {
-    case ident~typeArgs => TypeExpr(ident, typeArgs)
+    case ident~typeArgs => TypeExprExact(ident, typeArgs)
+  }
+  def lambdaExpr: Parser[TypeExpr] = pos(lambdaArgs) ^^ {
+    case ((args,ret),p) => ret match {
+      case Some(retVal) => TypeExprExact(Ident("LambdaR", fileStack.top, p), Seq.concat(args,Seq(retVal)))
+      case None => TypeExprExact(Ident("LambdaV", fileStack.top, p),args)
+    }
+  }
+  def typeNamedExpr: Parser[TypeNamedExpr] = ident ~ ":" ~ typeRef ^^ {
+    case ident~_~typeRef => TypeNamedExpr(ident,typeRef)
+  }
+  def lambdaArgs: Parser[(Seq[TypeExpr],Option[TypeExpr])] = surround("(", ")", repsepend(typeNamedExpr, ",")) ~ "=>" ~ ("()" | typeExpr) ^^ {
+    case args~_~typeExpr => if (typeExpr == "()") (args,None) else (args,Some(typeExpr.asInstanceOf[TypeExpr]))
   }
 
   def ident: Parser[Ident] = pos(regex("""[A-Za-z_][A-Za-z_0-9]*""".r)) ^^ {
