@@ -88,6 +88,7 @@ package object generatorTools {
     if (s.isEmpty) s else ", " + s
   }
   def q(s: String) = '"' + s + '"'
+  def qa(s:String) = '<' + s + '>'
   def firstUpper(token: String) = if (token.isEmpty()) token else token.charAt(0).toUpper + token.substring(1)
 
   type IdentConverter = String => String
