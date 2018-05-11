@@ -122,7 +122,7 @@ class ObjcGenerator(spec: Spec) extends BaseObjcGenerator(spec) {
 
     // Generate the implementation file for Interface
     if (i.consts.nonEmpty) {
-      refs.body.add("#import " + qa(spec.objcIncludePrefix + marshal.headerName(ident)))
+      refs.body.add("#import " + q(spec.objcIncludePrefix + marshal.headerName(ident)))
       writeObjcFile(bodyName(ident.name), origin, refs.body, w => {
         generateObjcConstants(w, i.consts, self, ObjcConstantType.ConstVariable)
       })
@@ -143,7 +143,7 @@ class ObjcGenerator(spec: Spec) extends BaseObjcGenerator(spec) {
     val self = marshal.typename(objcName, r)
 
     refs.header.add("#import <Foundation/Foundation.h>")
-    refs.body.add("!#import " + qa((if (r.ext.objc) spec.objcExtendedRecordIncludePrefix else spec.objcIncludePrefix) + marshal.headerName(ident)))
+    refs.body.add("!#import " + q((if (r.ext.objc) spec.objcExtendedRecordIncludePrefix else spec.objcIncludePrefix) + marshal.headerName(ident)))
 
     if (r.ext.objc) {
       refs.header.add(s"@class $noBaseSelf;")

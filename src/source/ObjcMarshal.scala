@@ -74,7 +74,7 @@ class ObjcMarshal(spec: Spec) extends Marshal(spec) {
   }
 
   def headerName(ident: String) = idObjc.ty(ident) + "." + spec.objcHeaderExt
-  def include(ident: String) = qa(spec.objcIncludePrefix + headerName(ident))
+  def include(ident: String) = q(spec.objcIncludePrefix + headerName(ident))
 
   def isPointer(td: TypeDecl) = td.body match {
     case i: Interface => true
