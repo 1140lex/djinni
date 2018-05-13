@@ -15,6 +15,7 @@
 #include <unordered_set>
 #include <unordered_map>
 #include <vector>
+#include <functional>
 
 static_assert(__has_feature(objc_arc), "Djinni requires ARC to be enabled for this file");
 
@@ -216,6 +217,88 @@ struct Binary {
                                                               length:static_cast<NSUInteger>(bytes.size())];
     }
 };
+
+template<class... Types>
+class LambdaV {
+
+    template <typename T>
+    using CppTypeUnpack = typename T::CppType;
+
+    template <typename T>
+    using ObjcTypeUnpack = typename T::ObjcType;
+
+public:
+
+    using CppType = std::function<void(CppTypeUnpack<Types>...)>;
+    using ObjcType = void(^)(ObjcTypeUnpack<Types>...);
+
+    using Boxed = LambdaV<Types...>;
+
+    static CppType toCpp(ObjcType block) {
+        return [block = [block copy]](CppTypeUnpack<Types>... args) {
+            ((ObjcType)block)(Types::fromCpp(args)...);
+        };
+    }
+
+    static ObjcType fromCpp(CppType fun) {
+        return [fun = std::move(fun)](ObjcTypeUnpack<Types>... args){
+            fun(Types::toCpp(args)...);
+        };
+    }
+};
+
+template<class Ret,class... Types>
+class LambdaRImpl {
+
+    template <typename T>
+    using CppTypeUnpack = typename T::CppType;
+
+    template <typename T>
+    using ObjcTypeUnpack = typename T::ObjcType;
+
+public:
+
+    using CppType = std::function<CppTypeUnpack<Ret>(CppTypeUnpack<Types>...)>;
+    using ObjcType = ObjcTypeUnpack<Ret>(^)(ObjcTypeUnpack<Types>...);
+
+    using Boxed = LambdaRImpl<Ret,Types...>;
+
+    static CppType toCpp(ObjcType block) {
+        return [block = [block copy]](CppTypeUnpack<Types>... args) -> CppTypeUnpack<Ret> {
+            return Ret::toCpp(block(Types::fromCpp(args)...));
+        };
+    }
+
+    static ObjcType fromCpp(CppType fun) {
+        return [fun = std::move(fun)](ObjcTypeUnpack<Types>... args) -> ObjcTypeUnpack<Ret> {
+            return Ret::fromCpp(fun(Types::toCpp(args)...));
+        };
+    }
+};
+
+namespace detail {
+
+    template<class T, class... Ts>
+    struct last_type_of {
+        using type = typename last_type_of<Ts...>::type;
+    };
+
+    template<typename T>
+    struct last_type_of<T> {
+        using type = T;
+    };
+
+
+    template <class T, class... Ts> struct LambdaRDeduce;
+    template <std::size_t... I, class... Ts>
+    struct LambdaRDeduce<std::index_sequence<I...>, Ts...>{
+        using type = LambdaRImpl<typename last_type_of<Ts...>::type, typename std::tuple_element<I, std::tuple<Ts...>>::type...>;
+    };
+
+}
+
+template<class... Types>
+class LambdaR : public detail::LambdaRDeduce<std::make_index_sequence<sizeof...(Types) - 1>, Types...>::type {};
 
 template<template<class> class OptionalType, class T>
 class Optional {

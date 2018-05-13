@@ -15,13 +15,14 @@ class ObjcMarshal(spec: Spec) extends Marshal(spec) {
   override def fqTypename(tm: MExpr): String = typename(tm)
   def fqTypename(name: String, ty: TypeDef): String = typename(name, ty)
 
-  def nullability(tm: MExpr): Option[String] = {
-    val nonnull = Some("nonnull")
-    val nullable = Some("nullable")
+  def nullability(tm: MExpr, nullableDef: String = "nullable", nonnullDef: String = "nonnull"): Option[String] = {
+    val nonnull = Some(nonnullDef)
+    val nullable = Some(nullableDef)
     val interfaceNullity = if (spec.cppNnType.nonEmpty) nonnull else nullable
     tm.base match {
       case MOptional => nullable
       case MPrimitive(_,_,_,_,_,_,_,_) => None
+      case l: MLambda => None
       case d: MDef => d.defType match {
         case DEnum => None
         case DInterface => interfaceNullity
@@ -37,7 +38,7 @@ class ObjcMarshal(spec: Spec) extends Marshal(spec) {
   }
 
   override def paramType(tm: MExpr): String = {
-    nullability(tm).fold("")(_ + " ") + toObjcParamType(tm)
+    toObjcParamType(tm,true)
   }
   override def fqParamType(tm: MExpr): String = paramType(tm)
 
@@ -90,15 +91,18 @@ class ObjcMarshal(spec: Spec) extends Marshal(spec) {
   }
 
   // Return value: (Type_Name, Is_Class_Or_Not)
-  def toObjcType(ty: TypeRef): (String, Boolean) = toObjcType(ty.resolved, false)
-  def toObjcType(ty: TypeRef, needRef: Boolean): (String, Boolean) = toObjcType(ty.resolved, needRef)
-  def toObjcType(tm: MExpr): (String, Boolean) = toObjcType(tm, false)
-  def toObjcType(tm: MExpr, needRef: Boolean): (String, Boolean) = {
+  def toObjcType(ty: TypeRef): (String, Boolean) = toObjcType(ty,false,false)
+  def toObjcType(ty: TypeRef, needRef: Boolean): (String, Boolean) = toObjcType(ty,needRef,false)
+  def toObjcType(ty: TypeRef, needRef: Boolean, needNullability: Boolean ): (String, Boolean) = toObjcType(ty.resolved, needRef,needNullability)
+  def toObjcType(tm: MExpr): (String, Boolean) = toObjcType(tm,false,false)
+  def toObjcType(tm: MExpr, needRef: Boolean): (String, Boolean) = toObjcType(tm,needRef,false)
+  def toObjcType(tm: MExpr, needRef: Boolean, needNullability: Boolean): (String, Boolean) = {
     def args(tm: MExpr) = if (tm.args.isEmpty) "" else tm.args.map(toBoxedParamType).mkString("<", ", ", ">")
-    def lambdaArgs(args : Seq[MExpr]) = args.map(toBoxedParamNamedType).mkString("(", ", ", ")")
-    def lambdaV(tm: MExpr) = "void (^)" + lambdaArgs(tm.args)
-    def lambdaR(tm: MExpr) = toBoxedParamType(tm.args.last) + "(^)" + lambdaArgs(tm.args.dropRight(1))
-    def f(tm: MExpr, needRef: Boolean): (String, Boolean) = {
+    def lambdaArgs(args : Seq[MExpr],needNullability: Boolean) = args.map(tm => toObjcParamNamedType(tm,needNullability)).mkString("(", ", ", ")")
+    def lambdaSign(needNullability: Boolean,isWeOptional: Boolean) = "(^" + (if (needNullability) (if (isWeOptional) " _Nullable" else " _Nonnull") else "") + ")"
+    def lambdaV(tm: MExpr,needNullability: Boolean,isWeOptional: Boolean) = "void " + lambdaSign(needNullability,isWeOptional) + lambdaArgs(tm.args,needNullability)
+    def lambdaR(tm: MExpr,needNullability: Boolean,isWeOptional: Boolean) = toObjcParamType(tm.args.last,needNullability) + lambdaSign(needNullability,isWeOptional) + lambdaArgs(tm.args.dropRight(1),needNullability)
+    def f(tm: MExpr, needRef: Boolean,needNullability: Boolean,isWeOptional: Boolean = false): (String, Boolean) = {
       tm.base match {
         case MOptional =>
           // We use "nil" for the empty optional.
@@ -106,7 +110,7 @@ class ObjcMarshal(spec: Spec) extends Marshal(spec) {
           val arg = tm.args.head
           arg.base match {
             case MOptional => throw new AssertionError("nested optional?")
-            case m => f(arg, true)
+            case m => f(arg, true, needNullability,true)
           }
         case o =>
           val base = o match {
@@ -120,9 +124,9 @@ class ObjcMarshal(spec: Spec) extends Marshal(spec) {
             case MMap => ("NSDictionary" + args(tm), true)
             case l: MLambda =>
               if (l.hasRet)
-                (lambdaR(tm),false)
+                (lambdaR(tm,needNullability,isWeOptional),false)
               else
-                (lambdaV(tm),false)
+                (lambdaV(tm,needNullability,isWeOptional),false)
             case d: MDef => d.defType match {
               case DEnum => if (needRef) ("NSNumber", true) else (idObjc.ty(d.name), false)
               case DRecord => (idObjc.ty(d.name), true)
@@ -142,7 +146,8 @@ class ObjcMarshal(spec: Spec) extends Marshal(spec) {
           base
       }
     }
-    f(tm, needRef)
+
+    f(tm, needRef, needNullability)
   }
 
   def toBoxedParamType(tm: MExpr): String = {
@@ -151,14 +156,17 @@ class ObjcMarshal(spec: Spec) extends Marshal(spec) {
   }
 
 
-  def toBoxedParamNamedType(tm: MExpr): String = {
-    val (name, needRef) = toObjcType(tm, true)
-    name + (if(needRef) "* " else " ") + tm.base.metaName
+  def toObjcParamNamedType(tm: MExpr,needNullability: Boolean): String = {
+    val (name, needRef) = toObjcType(tm,false,needNullability)
+    name + (if(needRef) " * " else " ") + (if(needNullability) nullability(tm,"_Nullable","_Nonnull").fold("")(_ + " ") else "") + tm.base.metaName
   }
 
-  def toObjcParamType(tm: MExpr): String = {
-    val (name, needRef) = toObjcType(tm)
-    name + (if(needRef) " *" else "")
+  def toObjcParamType(tm: MExpr, needNullability: Boolean = false): String = {
+    val (name, needRef) = toObjcType(tm,false,needNullability)
+    if (needNullability)
+      nullability(tm).fold("")(_ + " ") + name + (if(needRef) " *" else "")
+    else
+      name + (if(needRef) " *" else "")
   }
 
   /**

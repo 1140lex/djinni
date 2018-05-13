@@ -26,4 +26,5 @@ lambda_interface = interface +c {
     do_pass_lambda01(op : (val1 : string) => () );
     do_pass_lambda11(op : (val1 : string) => string );
     do_pass_lambda13(op : (val1 : string, val2 : i32, val3 : list<string>) => string );
+    do_pass_two_lambdas(op1 : () => (), op2 : () => ());
 }

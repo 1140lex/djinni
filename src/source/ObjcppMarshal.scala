@@ -81,7 +81,7 @@ class ObjcppMarshal(spec: Spec) extends Marshal(spec) {
       case MList => "List"
       case MSet => "Set"
       case MMap => "Map"
-      case l: MLambda => "Lambda"
+      case l: MLambda => if (l.hasRet) "LambdaR" else "LambdaV"
       case d: MDef => throw new AssertionError("unreachable")
       case e: MExtern => throw new AssertionError("unreachable")
       case p: MParam => throw new AssertionError("not applicable")

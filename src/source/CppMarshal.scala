@@ -170,6 +170,10 @@ class CppMarshal(spec: Spec) extends Marshal(spec) {
       }
       case p: MParam => idCpp.typeParam(p.name)
     }
+    def args(m: Meta, args: Seq[MExpr]): String = m match {
+      case l: MLambda => "<" + (if (l.hasRet) expr(args.last) else "void") + (if (l.hasRet) args.dropRight(1) else args).map(expr).mkString("(", ", ", ")") + ">"
+      case _ => if (args.isEmpty) "" else args.map(expr).mkString("<", ", ", ">")
+    }
     def expr(tm: MExpr): String = {
       spec.cppNnType match {
         case Some(nnType) => {
@@ -199,8 +203,7 @@ class CppMarshal(spec: Spec) extends Marshal(spec) {
           // otherwise, interfaces are always plain old shared_ptr
           expr(tm.args.head)
         } else {
-          val args = if (tm.args.isEmpty) "" else tm.args.map(expr).mkString("<", ", ", ">")
-          base(tm.base) + args
+          base(tm.base) + args(tm.base,tm.args)
         }
       }
     }
