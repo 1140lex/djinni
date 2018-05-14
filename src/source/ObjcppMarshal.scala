@@ -101,6 +101,11 @@ class ObjcppMarshal(spec: Spec) extends Marshal(spec) {
       case MMap =>
         assert(tm.args.size == 2)
         f
+      case l: MLambda =>
+        if (tm.args.isEmpty)
+          "<>"
+        else
+          f
       case _ => f
     }
   }
