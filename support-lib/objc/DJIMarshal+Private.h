@@ -236,13 +236,17 @@ public:
 
     static CppType toCpp(ObjcType block) {
         return [block = [block copy]](CppTypeUnpack<Types>... args) {
-            ((ObjcType)block)(Types::fromCpp(args)...);
+            @autoreleasepool {
+                ((ObjcType)block)(Types::fromCpp(args)...);
+            }
         };
     }
 
     static ObjcType fromCpp(CppType fun) {
         return [fun = std::move(fun)](ObjcTypeUnpack<Types>... args){
-            fun(Types::toCpp(args)...);
+            @autoreleasepool {
+                fun(Types::toCpp(args)...);
+            }
         };
     }
 };
@@ -265,13 +269,17 @@ public:
 
     static CppType toCpp(ObjcType block) {
         return [block = [block copy]](CppTypeUnpack<Types>... args) -> CppTypeUnpack<Ret> {
-            return Ret::toCpp(block(Types::fromCpp(args)...));
+            @autoreleasepool {
+                return Ret::toCpp(block(Types::fromCpp(args)...));
+            }
         };
     }
 
     static ObjcType fromCpp(CppType fun) {
         return [fun = std::move(fun)](ObjcTypeUnpack<Types>... args) -> ObjcTypeUnpack<Ret> {
-            return Ret::fromCpp(fun(Types::toCpp(args)...));
+            @autoreleasepool {
+                return Ret::fromCpp(fun(Types::toCpp(args)...));
+            }
         };
     }
 };
